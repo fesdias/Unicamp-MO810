@@ -20,7 +20,7 @@ import dasf.ml.xgboost.xgboost as XGBoost
 # IMPLEMENTAR PARA VERSÃO DASK 
 class Neighbors(Transform):
     
-    def transform(self, data, x, y, z):
+    def transform(data, x, y, z):
 
         # # Inicializa nova numpy array
         # neighbors = np.zeros([data.shape[0], data.shape[1], data.shape[2]])
@@ -53,6 +53,8 @@ class Neighbors(Transform):
 
         # return pd.DataFrame(neighbors)
 
+        data = np.array(data)
+        print(data.shape)
         neighbors = np.zeros([data.shape[0], data.shape[1], data.shape[2]])
 
         for i in range(data.shape[0]):
@@ -106,8 +108,9 @@ def create_pipeline(dataset_path: str, attribute_str: str, x: int, y: int, z: in
 
     # Declarando os operadores necessários
     dataset        = MyDataset(name="F3 dataset", data_path=dataset_path)
+    print(dataset)
+    df_neighbors   = Neighbors.transform(data=dataset, x=x, y=y, z=z)
     standardscaler = StantardScaler()
-    df_neighbors   = Neighbors(data = dataset, x=x, y=y, z=z)
     xgboost        = XGBoost.XGBRegressor()
 
     if attribute_str == "ENVELOPE":
@@ -129,7 +132,7 @@ def create_pipeline(dataset_path: str, attribute_str: str, x: int, y: int, z: in
 
     pipeline.add(dataset)
     pipeline.add(attribute, X=dataset)
-    pipeline.add(df_neighbors)
+    pipeline.add(df_neighbors, data=dataset)
     pipeline.add(standardscaler.fit_transform, X=df_neighbors)
     pipeline.add(xgboost.fit, X=persist)
     #pipeline.add(xgboost.predict, X=persist)
