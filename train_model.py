@@ -9,14 +9,12 @@ from pathlib import Path
 from typing  import Callable, Tuple
 
 from dasf_seismic.attributes.complex_trace import Envelope, InstantaneousFrequency, CosineInstantaneousPhase
-#from dasf.ml.xgboost.xgboost               import XGBRegressor
 from dasf.ml.preprocessing.standardscaler  import StantardScaler
-from dasf.transforms                       import ArraysToDataFrame, PersistDaskData, Transform
+from dasf.transforms                       import ArraysToDataFrame, Transform
 from dasf.pipeline                         import Pipeline
 from dasf.datasets                         import Dataset
 from dasf.pipeline.executors               import DaskPipelineExecutor
 from dasf.utils.decorators                 import task_handler
-
 import dasf.ml.xgboost.xgboost as XGBoost
 
 # IMPLEMENTAR PARA VERSÃO DASK 
@@ -109,9 +107,7 @@ def create_pipeline(dataset_path: str, attribute_str: str, x: int, y: int, z: in
     # Declarando os operadores necessários
     dataset        = MyDataset(name="F3 dataset", data_path=dataset_path)
     standardscaler = StantardScaler()
-    df_neighbors   = Neighbors()
-    #arrays2df      = ArraysToDataFrame()
-    persist        = PersistDaskData()
+    df_neighbors   = Neighbors(data = dataset, x=x, y=y, z=z)
     xgboost        = XGBoost.XGBRegressor()
 
     if attribute_str == "ENVELOPE":
@@ -133,12 +129,10 @@ def create_pipeline(dataset_path: str, attribute_str: str, x: int, y: int, z: in
 
     pipeline.add(dataset)
     pipeline.add(attribute, X=dataset)
-    pipeline.add(standardscaler.fit_transform, X=dataset)
-    pipeline.add(df_neighbors, data=standardscaler, x=x, y=y, z=z)
-    #pipeline.add(arrays2df, dataset=dataset, envelope=envelope, phase=phase)
-    pipeline.add(persist, X=df_neighbors)
+    pipeline.add(df_neighbors)
+    pipeline.add(standardscaler.fit_transform, X=df_neighbors)
     pipeline.add(xgboost.fit, X=persist)
-    pipeline.add(xgboost.predict, X=persist)
+    #pipeline.add(xgboost.predict, X=persist)
     pipeline_save_location = "pipeline.png"
 
     if pipeline_save_location is not None:
