@@ -91,7 +91,7 @@ def create_pipeline(dataset_path: str, attribute_str: str, x: int, y: int, z: in
         print("Attribute: Inst-Freq")
 
     else:
-        attribute_str = CosineInstantaneousPhase()
+        attribute = CosineInstantaneousPhase()
         print("Attribute: Cos-Inst-Phase")
     
     # Compondo o pipeline
