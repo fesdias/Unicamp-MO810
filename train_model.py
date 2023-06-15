@@ -109,7 +109,7 @@ def create_pipeline(dataset_path: str, attribute_str: str, x: int, y: int, z: in
     # Declarando os operadores necessários
     dataset        = MyDataset(name="F3 dataset", data_path=dataset_path)
     standardscaler = StantardScaler()
-    df_neighbors   = Neighbors()
+    #df_neighbors   = Neighbors.transform()
     #arrays2df      = ArraysToDataFrame()
     persist        = PersistDaskData()
     xgboost        = XGBoost.XGBRegressor()
@@ -134,12 +134,10 @@ def create_pipeline(dataset_path: str, attribute_str: str, x: int, y: int, z: in
     pipeline.add(dataset)
     pipeline.add(attribute, X=dataset)
     pipeline.add(standardscaler.fit_transform, X=dataset)
-    pipeline.add(df_neighbors, data=standardscaler, x=x, y=y, z=z)
+    pipeline.add(Neighbors.transform(), data=standardscaler.fit_transform, x=x, y=y, z=z)
     #pipeline.add(arrays2df, dataset=dataset, envelope=envelope, phase=phase)
-    pipeline.add(persist, X=df_neighbors)
-    pipeline.add(xgboost.fit, X=persist)
-    pipeline.add(xgboost.predict, X=persist)
-    pipeline_save_location = "pipeline.png"
+    pipeline.add(xgboost.fit, X=df_neighbors)
+    pipeline.add(xgboost.predict, X=xgboost.fit)
 
     if pipeline_save_location is not None:
         pipeline.visualize(filename=pipeline_save_location)
@@ -176,7 +174,7 @@ if __name__ == "__main__":
     executor = create_executor(args.address)
 
     # Depois o pipeline
-    pipeline, last_node = create_pipeline(args.data, args.attribute, args.samples_window, args.trace_window, args.inline_window, executor, pipeline_save_location=args.output)
+    pipeline, last_node = create_pipeline(args.data, args.attribute, args.samples_window, args.trace_window, args.inline_window, executor, pipeline_save_location="pipeline.png")
 
     # Executamos e pegamos o resultado
     res = run(pipeline, last_node)
