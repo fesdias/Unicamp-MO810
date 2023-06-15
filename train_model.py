@@ -23,25 +23,53 @@ import dasf.ml.xgboost.xgboost as XGBoost
 class Neighbors(Transform):
     
     def transform(self, data, x, y, z):
-        # (1 + 2*x + 2*y + 2*z)
+
+        # # Inicializa nova numpy array
+        # neighbors = np.zeros([data.shape[0], data.shape[1], data.shape[2]])
+
+        # for i in range(data.shape[0]):
+        #     for j in range(data.shape[1]):
+        #         for k in range(data.shape[2]):
+                    
+        #             # Seleciona vizinhos direita e esquerda e concatena - Dim X
+        #             x_shape          = dataset.shape[0] - 1
+        #             x_neighbor_left  = dataset[max(i-x, 0)      :max(i-1, 0),       j, k]
+        #             x_neighbor_right = dataset[min(i+1, x_shape):min(i+x, x_shape), j, k]
+        #             x_neighbor       = np.concatenate(x_neighbor_left.flatten(), x_neighbor_right.flatten())
+
+        #             # Seleciona vizinhos direita e esquerda e concatena - Dim Y
+        #             y_shape          = dataset.shape[1] - 1
+        #             y_neighbor_left  = dataset[i, max(j-y, 0)      :max(j-1, 0),     , k]
+        #             y_neighbor_right = dataset[i, min(j+1, y_shape):min(j+y, y_shape), k]
+        #             y_neighbor       = np.concatenate(y_neighbor_left.flatten(), y_neighbor_right.flatten())
+
+        #             # Seleciona vizinhos direita e esquerda e concatena - Dim Z
+        #             z_shape          = dataset.shape[2] - 1
+        #             z_neighbor_left  = dataset[i, j, max(k-z, 0)      :max(k-1, 0),     ]
+        #             z_neighbor_right = dataset[i, j, min(k+1, z_shape):min(k+z, z_shape)]
+        #             z_neighbor       = np.concatenate(z_neighbor_left.flatten(), z_neighbor_right.flatten())
+                    
+        #             # Concatena ponto principal e vizinhos e adiciona à matriz
+        #             neighbor_values    = np.concatenate([data[i, j, k]], x_neighbor, y_neighbor, z_neighbor)
+        #             neighbors[i, j, k] = neighbor_values
+
+        # return pd.DataFrame(neighbors)
+
         neighbors = np.zeros([data.shape[0], data.shape[1], data.shape[2]])
 
         for i in range(data.shape[0]):
             for j in range(data.shape[1]):
                 for k in range(data.shape[2]):
                     
-                    # REMOVER PONTO DO MEIO
-                    x_neighbor = dataset[max(i-x, 0):min(i+x+1, dataset.shape[0]), j, k]
-                    #x_neighbor_2 = dataset[max(i-x, 0):min(i+x+1, dataset.shape[0]), j, k]
-                    #x_neighbor   = np.concatenate(x_neighbor_1, x_neighbor_2)
-
-                    y_neighbor = dataset[i, max(j-y, 0):min(j+y+1, dataset.shape[1]), k]
-                    z_neighbor = dataset[i, j, max(k-z, 0):min(k+z+1, dataset.shape[2])]
+                    x_neighbor = dataset[max(i-x, 0):min(i+x+1, dataset.shape[0]), j, k].pop(x)
+                    y_neighbor = dataset[i, max(j-y, 0):min(j+y+1, dataset.shape[1]), k].pop(y)
+                    z_neighbor = dataset[i, j, max(k-z, 0):min(k+z+1, dataset.shape[2])].pop(z)
                     
                     neighbor_values    = np.concatenate(([data[i, j, k]], x_neighbor.flatten(), y_neighbor.flatten(), z_neighbor.flatten()))
                     neighbors[i, j, k] = neighbor_values
+                    print(neighbors)
 
-        return neighbors
+        return pd.DataFrame(neighbors)
 
 
 class MyDataset(Dataset):
@@ -114,7 +142,7 @@ def create_pipeline(dataset_path: str, attribute_str: str, x: int, y: int, z: in
     pipeline_save_location = "pipeline.png"
 
     if pipeline_save_location is not None:
-    	pipeline.visualize(filename=pipeline_save_location)
+        pipeline.visualize(filename=pipeline_save_location)
     
     # Retorna o pipeline e o operador kmeans, donde os resultados serão obtidos
     return pipeline, xgboost.fit
@@ -137,9 +165,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Executa o pipeline")
     parser.add_argument("--attribute",      type=str, required=True, help="Nome do atributo a ser usado para treinar o modelo")
     parser.add_argument("--data",           type=str, required=True, help="Caminho para o arquivo .zarr")
-    parser.add_argument("--samples_window", type=str, default=0,     help="Número de vizinhos na dimensão das amostras de um traço")
-    parser.add_argument("--trace_window",   type=str, default=0,     help="Número de vizinhos na dimensão dos traços de uma inline")
-    parser.add_argument("--inline_window",  type=str, default=0,     help="Número de vizinhos na dimensão das inlines")
+    parser.add_argument("--samples-window", type=str, default=0,     help="Número de vizinhos na dimensão das amostras de um traço")
+    parser.add_argument("--trace-window",   type=str, default=0,     help="Número de vizinhos na dimensão dos traços de uma inline")
+    parser.add_argument("--inline-window",  type=str, default=0,     help="Número de vizinhos na dimensão das inlines")
     parser.add_argument("--address",        type=str, default=None,  help="Endereço do dask scheduler. Formato: HOST:PORT")
     parser.add_argument("--output",         type=str, required=True, help="Nome do arquivo de saída onde deve ser gravado o modelo treinado .json")
     args = parser.parse_args()
