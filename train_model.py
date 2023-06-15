@@ -9,19 +9,20 @@ from pathlib import Path
 from typing  import Callable, Tuple
 
 from dasf_seismic.attributes.complex_trace import Envelope, InstantaneousFrequency, CosineInstantaneousPhase
+#from dasf.ml.xgboost.xgboost               import XGBRegressor
 from dasf.ml.preprocessing.standardscaler  import StantardScaler
-from dasf.ml.xgboost.xgboost               import XGBRegressor
 from dasf.transforms                       import ArraysToDataFrame, PersistDaskData, Transform
-from dasf.datasets                         import Dataset
 from dasf.pipeline                         import Pipeline
+from dasf.datasets                         import Dataset
 from dasf.pipeline.executors               import DaskPipelineExecutor
 from dasf.utils.decorators                 import task_handler
 
+import dasf.ml.xgboost.xgboost as XGBoost
 
 # IMPLEMENTAR PARA VERSÃO DASK 
 class Neighbors(Transform):
     
-    def transform(self, data, x, y, z):
+    def transform(self, data, x, y, z)):
         # (1 + 2*x + 2*y + 2*z)
         neighbors = np.zeros([data.shape[0], data.shape[1], data.shape[2]])
 
@@ -31,6 +32,9 @@ class Neighbors(Transform):
                     
                     # REMOVER PONTO DO MEIO
                     x_neighbor = dataset[max(i-x, 0):min(i+x+1, dataset.shape[0]), j, k]
+                    #x_neighbor_2 = dataset[max(i-x, 0):min(i+x+1, dataset.shape[0]), j, k]
+                    #x_neighbor   = np.concatenate(x_neighbor_1, x_neighbor_2)
+
                     y_neighbor = dataset[i, max(j-y, 0):min(j+y+1, dataset.shape[1]), k]
                     z_neighbor = dataset[i, j, max(k-z, 0):min(k+z+1, dataset.shape[2])]
                     
@@ -70,7 +74,7 @@ def create_executor(address: str=None) -> DaskPipelineExecutor:
         return DaskPipelineExecutor(local=True, use_gpu=False)
 
 # FINALIZAR CRIAÇÃO PIPELINE
-def create_pipeline(dataset_path: str, attribute_str: str, x: int, y: int, z: int, executor: DaskPipelineExecutor, pipeline_save_location: str = None) -> Tuple[Pipeline, Callable]:
+def create_pipeline(dataset_path: str, attribute_str: str, x: int = 0, y: int = 0, z: int = 0, executor: DaskPipelineExecutor, pipeline_save_location: str = None) -> Tuple[Pipeline, Callable]:
     # Cria o pipeline DASF para ser executado
     print("Criando pipeline....")
 
@@ -80,7 +84,7 @@ def create_pipeline(dataset_path: str, attribute_str: str, x: int, y: int, z: in
     df_neighbors   = Neighbors()
     #arrays2df      = ArraysToDataFrame()
     persist        = PersistDaskData()
-    xgboost        = XGBRegressor()
+    xgboost        = XGBoost.XGBRegressor()
 
     if attribute_str == "ENVELOPE":
         attribute = Envelope()
@@ -91,7 +95,7 @@ def create_pipeline(dataset_path: str, attribute_str: str, x: int, y: int, z: in
         print("Attribute: Inst-Freq")
 
     else:
-        attribute = CosineInstantaneousPhase()
+        attribute_str = CosineInstantaneousPhase()
         print("Attribute: Cos-Inst-Phase")
     
     # Compondo o pipeline
@@ -106,7 +110,7 @@ def create_pipeline(dataset_path: str, attribute_str: str, x: int, y: int, z: in
     #pipeline.add(arrays2df, dataset=dataset, envelope=envelope, phase=phase)
     pipeline.add(persist, X=df_neighbors)
     pipeline.add(xgboost.fit, X=persist)
-    #pipeline.add(xgboost.predict, X=persist)
+    pipeline.add(xgboost.predict, X=persist)
     pipeline_save_location = "pipeline.png"
 
     if pipeline_save_location is not None:
