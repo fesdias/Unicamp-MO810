@@ -22,7 +22,7 @@ import dasf.ml.xgboost.xgboost as XGBoost
 # IMPLEMENTAR PARA VERSÃO DASK 
 class Neighbors(Transform):
     
-    def transform(self, data, x, y, z)):
+    def transform(self, data, x, y, z):
         # (1 + 2*x + 2*y + 2*z)
         neighbors = np.zeros([data.shape[0], data.shape[1], data.shape[2]])
 
@@ -74,7 +74,7 @@ def create_executor(address: str=None) -> DaskPipelineExecutor:
         return DaskPipelineExecutor(local=True, use_gpu=False)
 
 # FINALIZAR CRIAÇÃO PIPELINE
-def create_pipeline(dataset_path: str, attribute_str: str, x: int = 0, y: int = 0, z: int = 0, executor: DaskPipelineExecutor, pipeline_save_location: str = None) -> Tuple[Pipeline, Callable]:
+def create_pipeline(dataset_path: str, attribute_str: str, x: int, y: int, z: int, executor: DaskPipelineExecutor, pipeline_save_location: str = None) -> Tuple[Pipeline, Callable]:
     # Cria o pipeline DASF para ser executado
     print("Criando pipeline....")
 
@@ -137,10 +137,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Executa o pipeline")
     parser.add_argument("--attribute",      type=str, required=True, help="Nome do atributo a ser usado para treinar o modelo")
     parser.add_argument("--data",           type=str, required=True, help="Caminho para o arquivo .zarr")
-    parser.add_argument("--samples-window", type=str, default=0,     help="Número de vizinhos na dimensão das amostras de um traço")
-    parser.add_argument("--trace-window",   type=str, default=0,     help="Número de vizinhos na dimensão dos traços de uma inline")
-    parser.add_argument("--inline-window",  type=str, default=0,     help="Número de vizinhos na dimensão das inlines")
-    parser.add_argument("--address",        type=str, required=True, help="Endereço do dask scheduler. Formato: HOST:PORT")
+    parser.add_argument("--samples_window", type=str, default=0,     help="Número de vizinhos na dimensão das amostras de um traço")
+    parser.add_argument("--trace_window",   type=str, default=0,     help="Número de vizinhos na dimensão dos traços de uma inline")
+    parser.add_argument("--inline_window",  type=str, default=0,     help="Número de vizinhos na dimensão das inlines")
+    parser.add_argument("--address",        type=str, default=None,  help="Endereço do dask scheduler. Formato: HOST:PORT")
     parser.add_argument("--output",         type=str, required=True, help="Nome do arquivo de saída onde deve ser gravado o modelo treinado .json")
     args = parser.parse_args()
    
@@ -148,7 +148,7 @@ if __name__ == "__main__":
     executor = create_executor(args.address)
 
     # Depois o pipeline
-    pipeline, last_node = create_pipeline(args.data, artgs.attribute, args.samples-window, args.trace-window, args.inline-window, executor, pipeline_save_location=args.output)
+    pipeline, last_node = create_pipeline(args.data, args.attribute, args.samples_window, args.trace_window, args.inline_window, executor, pipeline_save_location=args.output)
 
     # Executamos e pegamos o resultado
     res = run(pipeline, last_node)
@@ -160,4 +160,3 @@ if __name__ == "__main__":
         import matplotlib.pyplot as plt
         plt.imsave(args.save_inline_fig, res[0], cmap="viridis")
         print(f"Figura da inline 0 salva em {args.save_inline_fig}")
-    
