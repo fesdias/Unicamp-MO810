@@ -68,24 +68,11 @@ def create_pipeline(dataset_path: str, attribute_str: str, x: int, y: int, z: in
     # Declarando os operadores necessários
     dataset    = MyDataset(name="F3 dataset", data_path=dataset_path)
     xgboost    = XGBoost.XGBRegressor()
-    arrays2df1 = ArraysToDataFrame()
-    arrays2df2 = ArraysToDataFrame()
+    arrays2df  = ArraysToDataFrame()
 
     x = int(x)
     y = int(y)
     z = int(z)
-
-    if attribute_str == "ENVELOPE":
-        attribute = Envelope()
-        print("Attribute: Envelope")
-
-    elif attribute_str == "INST-FREQ":
-        attribute = InstantaneousFrequency()
-        print("Attribute: Inst-Freq")
-
-    else:
-        attribute = CosineInstantaneousPhase()
-        print("Attribute: Cos-Inst-Phase")
     
     # Compondo o pipeline
     pipeline = Pipeline(
@@ -93,8 +80,6 @@ def create_pipeline(dataset_path: str, attribute_str: str, x: int, y: int, z: in
         executor = executor)
 
     pipeline.add(dataset)
-    pipeline.add(attribute, X=dataset)
-    pipeline.add(arrays2df1, attribute=attribute)
 
     i = 0
     dict_n = {}
@@ -136,12 +121,12 @@ def create_pipeline(dataset_path: str, attribute_str: str, x: int, y: int, z: in
             i += 1
         
     if x != 0 or y != 0 or z != 0:
-        pipeline.add(arrays2df2, dataset=dataset, **dict_n)
+        pipeline.add(arrays2df, dataset=dataset, **dict_n)
 
     else:
-        pipeline.add(arrays2df2, dataset=dataset)
+        pipeline.add(arrays2df, dataset=dataset)
     
-    pipeline.add(xgboost.fit, X=arrays2df2, y=arrays2df1)
+    pipeline.add(xgboost.predict, X=arrays2df2)
     
     try:
         pipeline_save_location = "pipeline"
@@ -162,7 +147,7 @@ def run(pipeline: Pipeline, last_node: Callable) -> np.ndarray:
     pipeline.run()
     res = pipeline.get_result_from(last_node)
     # run model para computar a predição
-    #res = res.compute()
+    res = res.compute()
     end = time.time()
     
     print(f"Feito! Tempo de execução: {end - start:.2f} s")
@@ -171,20 +156,20 @@ def run(pipeline: Pipeline, last_node: Callable) -> np.ndarray:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Executa o pipeline")
-    parser.add_argument("--attribute",      type=str, required=True, help="Nome do atributo a ser usado para treinar o modelo")
+    parser.add_argument("--ml-model",       type=str, required=True, help="Nome do modelo treinado .json")
     parser.add_argument("--data",           type=str, required=True, help="Caminho para o arquivo .zarr")
     parser.add_argument("--samples-window", type=str, default=0,     help="Número de vizinhos na dimensão das amostras de um traço")
     parser.add_argument("--trace-window",   type=str, default=0,     help="Número de vizinhos na dimensão dos traços de uma inline")
     parser.add_argument("--inline-window",  type=str, default=0,     help="Número de vizinhos na dimensão das inlines")
     parser.add_argument("--address",        type=str, default=None,  help="Endereço do dask scheduler. Formato: HOST:PORT")
-    parser.add_argument("--output",         type=str, required=True, help="Nome do arquivo de saída onde deve ser gravado o modelo treinado .json")
+    parser.add_argument("--output",         type=str, required=True, help="Nome do arquivo de saída onde deve ser gravado o atributo sísmico produzido")
     args = parser.parse_args()
    
     # Criamos o executor
     executor = create_executor(args.address)
 
     # Depois o pipeline
-    pipeline, last_node = create_pipeline(args.data, args.attribute, args.samples_window, args.trace_window, args.inline_window, executor, pipeline_save_location=args.output)
+    pipeline, last_node = create_pipeline(args.data, args.ml_model args.samples_window, args.trace_window, args.inline_window, executor, pipeline_save_location=args.output)
 
     # Executamos e pegamos o resultado
     res = run(pipeline, last_node)
