@@ -1,3 +1,4 @@
+import json
 import time
 import argparse
 import numpy as np
@@ -10,12 +11,14 @@ from typing  import Callable, Tuple
 
 from dasf_seismic.attributes.complex_trace import Envelope, InstantaneousFrequency, CosineInstantaneousPhase
 from dasf.ml.preprocessing.standardscaler  import StantardScaler
-from dasf.transforms                       import ArraysToDataFrame, Transform
+from dasf.transforms                       import ArraysToDataFrame, Transform, PersistDaskData
 from dasf.pipeline                         import Pipeline
 from dasf.datasets                         import Dataset
 from dasf.pipeline.executors               import DaskPipelineExecutor
 from dasf.utils.decorators                 import task_handler
 import dasf.ml.xgboost.xgboost as XGBoost
+
+from dask.distributed import Client, performance_report
 
 
 class Neighbors(Transform):
@@ -70,6 +73,7 @@ def create_pipeline(dataset_path: str, attribute_str: str, x: int, y: int, z: in
     xgboost    = XGBoost.XGBRegressor()
     arrays2df1 = ArraysToDataFrame()
     arrays2df2 = ArraysToDataFrame()
+    persist    = PersistDaskData()
 
     x = int(x)
     y = int(y)
@@ -134,7 +138,7 @@ def create_pipeline(dataset_path: str, attribute_str: str, x: int, y: int, z: in
             pipeline.add(neighbor, dataset=dataset)
             dict_n[f"n_{i}"] = neighbor
             i += 1
-        
+
     if x != 0 or y != 0 or z != 0:
         pipeline.add(arrays2df2, dataset=dataset, **dict_n)
 
@@ -144,15 +148,15 @@ def create_pipeline(dataset_path: str, attribute_str: str, x: int, y: int, z: in
     pipeline.add(xgboost.fit, X=arrays2df2, y=arrays2df1)
     
     try:
-        pipeline_save_location = "pipeline"
-        if pipeline_save_location is not None:
-            pipeline.visualize(filename=pipeline_save_location)
+        pipeline_save_location = f"pipelines/pipeline_n_{2*x + 2*y +2*z}"
+        pipeline.visualize(filename=pipeline_save_location)
 
     except:
         print("error visualize")
 
     # Retorna o pipeline e o operador kmeans, donde os resultados serão obtidos
     return pipeline, xgboost.fit
+    #return pipeline, persist
 
 
 def run(pipeline: Pipeline, last_node: Callable) -> np.ndarray:
@@ -161,8 +165,6 @@ def run(pipeline: Pipeline, last_node: Callable) -> np.ndarray:
     start = time.time()
     pipeline.run()
     res = pipeline.get_result_from(last_node)
-    # run model para computar a predição
-    #res = res.compute()
     end = time.time()
     
     print(f"Feito! Tempo de execução: {end - start:.2f} s")
@@ -179,12 +181,18 @@ if __name__ == "__main__":
     parser.add_argument("--address",        type=str, default=None,  help="Endereço do dask scheduler. Formato: HOST:PORT")
     parser.add_argument("--output",         type=str, required=True, help="Nome do arquivo de saída onde deve ser gravado o modelo treinado .json")
     args = parser.parse_args()
-   
-    # Criamos o executor
-    executor = create_executor(args.address)
 
-    # Depois o pipeline
-    pipeline, last_node = create_pipeline(args.data, args.attribute, args.samples_window, args.trace_window, args.inline_window, executor, pipeline_save_location=args.output)
+    client = Client(args.address.replace("tcp://", ""))
+    with performance_report(filename=f"reports/Report_workers_2_{args.samples_window}_{args.trace_window}_{args.inline_window}.html"):
 
-    # Executamos e pegamos o resultado
-    res = run(pipeline, last_node)
+        # Criamos o executor
+        executor = create_executor(args.address)
+
+        # Depois o pipeline
+        pipeline, last_node = create_pipeline(args.data, args.attribute, args.samples_window, args.trace_window, args.inline_window, executor, pipeline_save_location=args.output)
+
+        # Executamos e pegamos o resultado
+        res = run(pipeline, last_node)
+        res.save_model(f"models/{args.output}")
+
+        #res.to_csv("fake_attribute.csv")

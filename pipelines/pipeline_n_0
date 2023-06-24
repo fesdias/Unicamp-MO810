@@ -1,0 +1,17 @@
+digraph "F3 seismic COS-INST-PHASE" {
+	44143058 [label="CosineInstantaneousPhase.transform"]
+	129153 [label="MyDataset.load"]
+	129153 -> 44143058 [label=X]
+	44142983 [label="ArraysToDataFrame.transform"]
+	44143058 [label="CosineInstantaneousPhase.transform"]
+	44143058 -> 44142983 [label=attribute]
+	44143041 [label="ArraysToDataFrame.transform"]
+	129153 [label="MyDataset.load"]
+	129153 -> 44143041 [label=dataset]
+	43008223 [label="XGBRegressor.fit"]
+	44143041 [label="ArraysToDataFrame.transform"]
+	44143041 -> 43008223 [label=X]
+	43008223 [label="XGBRegressor.fit"]
+	44142983 [label="ArraysToDataFrame.transform"]
+	44142983 -> 43008223 [label=y]
+}

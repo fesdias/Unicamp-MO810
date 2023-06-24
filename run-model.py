@@ -1,21 +1,84 @@
 import time
+import json
 import argparse
 import numpy as np
 import pandas as pd
+import xgboost as xgb
 import dask.array as da
 import matplotlib.pyplot as plt
+import dasf.ml.xgboost.xgboost as XGBoost
 
 from pathlib import Path
 from typing  import Callable, Tuple
 
 from dasf_seismic.attributes.complex_trace import Envelope, InstantaneousFrequency, CosineInstantaneousPhase
 from dasf.ml.preprocessing.standardscaler  import StantardScaler
-from dasf.transforms                       import ArraysToDataFrame, Transform
+from dasf.transforms                       import ArraysToDataFrame, Transform, PersistDaskData
 from dasf.pipeline                         import Pipeline
 from dasf.datasets                         import Dataset
 from dasf.pipeline.executors               import DaskPipelineExecutor
 from dasf.utils.decorators                 import task_handler
-import dasf.ml.xgboost.xgboost as XGBoost
+
+
+#!/usr/bin/env python3
+
+import GPUtil
+from dasf.transforms import Fit
+from dasf.transforms import Predict
+from dasf.transforms import FitPredict
+
+class XGBRegressor(Fit, FitPredict, Predict):
+    def __init__(
+        self,
+        max_depth=None,
+        max_leaves=None,
+        max_bin=None,
+        grow_policy=None,
+        learning_rate=None,
+        n_estimators=100,
+        verbosity=None,
+        objective=None,
+        booster=None,
+        tree_method=None,
+        n_jobs=None,
+        gamma=None,
+        min_child_weight=None,
+        max_delta_step=None,
+        subsample=None,
+        sampling_method=None,
+        colsample_bytree=None,
+        colsample_bylevel=None,
+        colsample_bynode=None,
+        reg_alpha=None,
+        reg_lambda=None,
+        scale_pos_weight=None,
+        base_score=None,
+        random_state=None,
+        num_parallel_tree=None,
+        monotone_constraints=None,
+        interaction_constraints=None,
+        importance_type=None,
+        gpu_id=None,
+        validate_parameters=None,
+        predictor=None,
+        enable_categorical=False,
+        max_cat_to_onehot=None,
+        eval_metric=None,
+        early_stopping_rounds=None,
+        callbacks=None,
+        **kwargs
+    ):
+        self.fname = kwargs["fname"]
+        self.__xgb_mcpu = xgb.dask.DaskXGBRegressor()
+        return self.__xgb_mcpu.load_model(self.fname)
+
+    def _lazy_predict_cpu(self, X, sample_weight=None, **kwargs):
+        self.__xgb_mcpu.load_model(self.fname)
+        return self.__xgb_mcpu.predict(X=X, **kwargs)
+
+    def _predict_cpu(self, X, sample_weight=None, **kwargs):
+        self.__xgb_mcpu.load_model(self.fname)
+        return self.__xgb_mcpu.predict(X=X, **kwargs)
 
 
 class Neighbors(Transform):
@@ -61,26 +124,39 @@ def create_executor(address: str=None) -> DaskPipelineExecutor:
         return DaskPipelineExecutor(local=True, use_gpu=False)
 
 
-def create_pipeline(dataset_path: str, attribute_str: str, x: int, y: int, z: int, executor: DaskPipelineExecutor, pipeline_save_location: str = None) -> Tuple[Pipeline, Callable]:
+def create_pipeline(ml_model, dataset_path: str, x: int, y: int, z: int, executor: DaskPipelineExecutor, pipeline_save_location: str = None) -> Tuple[Pipeline, Callable]:
     # Cria o pipeline DASF para ser executado
     print("Criando pipeline....")
 
-    # Declarando os operadores necessários
-    dataset    = MyDataset(name="F3 dataset", data_path=dataset_path)
-    xgboost    = XGBoost.XGBRegressor()
-    arrays2df  = ArraysToDataFrame()
+    # Carregamos o modelo
+    # xgboost = xgb.Booster()
+    # xgboost.load_model(ml_model)
+    with open("CIP-ml-model-0-0-0.json", 'rb') as file:
+        ml_data = json.load(file)
+    xgboost = XGBoost.XGBRegressor(fname=ml_data)
 
+    # Declarando os operadores necessários
+    dataset   = MyDataset(name="F3 dataset", data_path=dataset_path)
+    arrays2df = ArraysToDataFrame()
+    persist   = PersistDaskData()
+    # dmatrix   = dxgb.DataFrameShim()
+
+    # dict_predict = {}
+    # dict_predict["fname"] = ml_model
+
+    # Convertendo valores dos vizinhos
     x = int(x)
     y = int(y)
     z = int(z)
     
     # Compondo o pipeline
     pipeline = Pipeline(
-        name = f"F3 seismic {attribute_str}",
+        name = f"F3 seismic",
         executor = executor)
 
     pipeline.add(dataset)
 
+    # Adiciona os vizinhos ao dataset
     i = 0
     dict_n = {}
 
@@ -126,7 +202,8 @@ def create_pipeline(dataset_path: str, attribute_str: str, x: int, y: int, z: in
     else:
         pipeline.add(arrays2df, dataset=dataset)
     
-    pipeline.add(xgboost.predict, X=arrays2df2)
+    #pipeline.add(dmatrix, data=arrays2df)
+    pipeline.add(xgboost.predict, X=arrays2df)
     
     try:
         pipeline_save_location = "pipeline"
@@ -137,7 +214,8 @@ def create_pipeline(dataset_path: str, attribute_str: str, x: int, y: int, z: in
         print("error visualize")
 
     # Retorna o pipeline e o operador kmeans, donde os resultados serão obtidos
-    return pipeline, xgboost.fit
+    return pipeline, xgboost.predict
+    #return pipeline, persist
 
 
 def run(pipeline: Pipeline, last_node: Callable) -> np.ndarray:
@@ -147,7 +225,7 @@ def run(pipeline: Pipeline, last_node: Callable) -> np.ndarray:
     pipeline.run()
     res = pipeline.get_result_from(last_node)
     # run model para computar a predição
-    res = res.compute()
+    #res = res.compute()
     end = time.time()
     
     print(f"Feito! Tempo de execução: {end - start:.2f} s")
@@ -169,7 +247,17 @@ if __name__ == "__main__":
     executor = create_executor(args.address)
 
     # Depois o pipeline
-    pipeline, last_node = create_pipeline(args.data, args.ml_model args.samples_window, args.trace_window, args.inline_window, executor, pipeline_save_location=args.output)
+    pipeline, last_node = create_pipeline(args.ml_model, args.data, args.samples_window, args.trace_window, args.inline_window, executor, pipeline_save_location=args.output)
 
     # Executamos e pegamos o resultado
     res = run(pipeline, last_node)
+    #res.to_csv("fake_attribute.csv")
+    print(f"O resultado é um array com o shape: {res.shape}")
+    
+    # Podemos fazer o reshape e printar a primeira inline
+    if args.save_inline_fig is not None:
+        res = res.reshape((401, 701, 255))
+        import matplotlib.pyplot as plt
+        plt.imsave(args.save_inline_fig, res[0], cmap="viridis")
+        print(f"Figura da inline 0 salva em {args.save_inline_fig}")
+    
