@@ -13,3 +13,6 @@ Clear docker to restart
 ```
 docker system prune -a
 ```
+```
+docker run -it -v $(pwd):$(pwd) -e HOME=$(pwd) -w $(pwd) -u $(id -u):$(id -g) --network=host dasf-seismic:cpu python3 train-model.py --attribute CIF --data data/F3_train.zarr --inline-window 2 --trace-window 0 --samples-window 0 --address tcp://143.106.16.207:8786 --output models/CIF-ml-model-2-0-0.json
+```
