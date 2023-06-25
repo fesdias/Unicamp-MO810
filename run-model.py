@@ -69,15 +69,16 @@ class XGBRegressor(Fit, FitPredict, Predict):
         **kwargs
     ):
         self.fname = kwargs["fname"]
+        print(self.fnames)
         self.__xgb_mcpu = xgb.dask.DaskXGBRegressor()
         return self.__xgb_mcpu.load_model(self.fname)
 
     def _lazy_predict_cpu(self, X, sample_weight=None, **kwargs):
-        self.__xgb_mcpu.load_model(self.fname)
+        #self.__xgb_mcpu.load_model(self.fname)
         return self.__xgb_mcpu.predict(X=X, **kwargs)
 
     def _predict_cpu(self, X, sample_weight=None, **kwargs):
-        self.__xgb_mcpu.load_model(self.fname)
+        #self.__xgb_mcpu.load_model(self.fname)
         return self.__xgb_mcpu.predict(X=X, **kwargs)
 
 
@@ -131,9 +132,9 @@ def create_pipeline(ml_model, dataset_path: str, x: int, y: int, z: int, executo
     # Carregamos o modelo
     # xgboost = xgb.Booster()
     # xgboost.load_model(ml_model)
-    with open("CIP-ml-model-0-0-0.json", 'rb') as file:
-        ml_data = json.load(file)
-    xgboost = XGBoost.XGBRegressor(fname=ml_data)
+    # with open("models/CIP-ml-model-0-0-0.json", 'rb') as file:
+    #     ml_data = json.load(file)
+    xgboost = XGBoost.XGBRegressor(fname=ml_model)
 
     # Declarando os operadores necessários
     dataset   = MyDataset(name="F3 dataset", data_path=dataset_path)
