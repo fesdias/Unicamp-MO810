@@ -148,7 +148,7 @@ def create_pipeline(dataset_path: str, attribute_str: str, x: int, y: int, z: in
     pipeline.add(xgboost.fit, X=arrays2df2, y=arrays2df1)
     
     try:
-        pipeline_save_location = f"pipelines/train_n_{2*x + 2*y +2*z}"
+        pipeline_save_location = f"train_n_{2*x + 2*y +2*z}"
         pipeline.visualize(filename=pipeline_save_location)
 
     except:
@@ -182,7 +182,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     client = Client(args.address.replace("tcp://", ""))
-    with performance_report(filename=f"reports/train_4_workers_{args.samples_window}_{args.trace_window}_{args.inline_window}.html"):
+    with performance_report(filename=f"train_{args.samples_window}_{args.trace_window}_{args.inline_window}.html"):
 
         # Criamos o executor
         executor = create_executor(args.address)

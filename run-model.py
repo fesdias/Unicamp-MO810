@@ -196,7 +196,7 @@ def create_pipeline(ml_model, dataset_path: str, x: int, y: int, z: int, executo
     pipeline.add(xgboost.predict, X=arrays2df)
     
     try:
-        pipeline_save_location = f"pipelines/run_n_{2*x + 2*y +2*z}"
+        pipeline_save_location = f"run_n_{2*x + 2*y +2*z}"
         pipeline.visualize(filename=pipeline_save_location)
 
     except:
@@ -231,7 +231,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     client = Client(args.address.replace("tcp://", ""))
-    with performance_report(filename=f"reports/run_1_workers_{args.samples_window}_{args.trace_window}_{args.inline_window}.html"):
+    with performance_report(filename=f"run_{args.samples_window}_{args.trace_window}_{args.inline_window}.html"):
    
         # Criamos o executor
         executor = create_executor(args.address)
@@ -244,7 +244,7 @@ if __name__ == "__main__":
         print(f"O resultado é um array com o shape: {res.shape}")
 
         # Podemos fazer o reshape e printar a primeira inline
-        inline_name = f"inlines/CIP_inline_{args.samples_window}_{args.trace_window}_{args.inline_window}.jpeg"
+        inline_name = f"CIP_inline_{args.samples_window}_{args.trace_window}_{args.inline_window}.jpeg"
         res = res.values.reshape((401, 701, 255))
         plt.imsave(inline_name, res[0], cmap="viridis")
         print(f"Figura da inline 0 salva em {inline_name}")
